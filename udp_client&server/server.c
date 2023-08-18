@@ -3,51 +3,49 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#define MAX 80
 #define PORT 8080
-#define MAXLINE 1024
+#define SA struct sockaddr
+#define SAI struct sockaddr_in
 
-int main() {
-    int sockfd;
-    char buffer[MAXLINE];
-    char *hello = "Hello from server";
-    struct sockaddr_in servaddr, cliaddr;
-
-    // Creating socket file descriptor
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("socket creation failed");
-        exit(EXIT_FAILURE);
+void chat(int sockfd,SAI client){
+    printf("\nServer ready,waiting for client....\n");
+    char buff[MAX];
+    int n,len = sizeof(client);
+    while(1)
+    {      
+        bzero(buff, sizeof(buff));
+        recvfrom(sockfd,buff,sizeof(buff),0,(SA*)&client,(socklen_t*)&len);
+        printf("\nClient:%s",buff);
+        n = 0; 
+        printf("\nServer:");
+        bzero(buff, sizeof(buff)); 
+        while ((buff[n++] = getchar()) !='\n');
+        sendto(sockfd,buff,sizeof(buff),0,(SA*)&client,len);
+        if(strncmp(buff,"exit",4)==0){
+            printf("Server Exit...\n");
+            break;
+        }
     }
 
-    memset(&servaddr, 0, sizeof(servaddr));
-    memset(&cliaddr, 0, sizeof(cliaddr));
-
-    // Filling server information
-    servaddr.sin_family = AF_INET; // IPv4
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(PORT);
-
-    // Bind the socket with the server address
-    if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    int len, n;
-
-    len = sizeof(cliaddr); //len is value/result
-
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
-    buffer[n] = '\0';
-    printf("Client: %s\n", buffer);
-
-    // Prompt user to enter a message
-    printf("Enter a message to send: ");
-    fgets(buffer, MAXLINE, stdin);
-
-    sendto(sockfd, (const char *)buffer, strlen(buffer), MSG_CONFIRM, (const struct sockaddr *)&cliaddr, len);
-    printf("Message sent: %s\n", buffer);
-
-    return 0;
 }
+
+int main(){
+    SAI server,client;
+    int sockfd;
+    sockfd=socket(AF_INET,SOCK_DGRAM,0);
+    server.sin_family=AF_INET;
+    server.sin_addr.s_addr=htonl(INADDR_ANY);
+    server.sin_port=htons(PORT);
+    if ((bind(sockfd, (SA*)&server, sizeof(server))) == 0) 
+        printf("Socket successfully binded..\n");
+
+    chat(sockfd,client);
+	return 0;
+ 
+}
+
+
+ 
