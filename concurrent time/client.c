@@ -2,56 +2,36 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
-#define PORT 8888
-#define BUF_SIZE 1024
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
+#define SAI struct sockaddr_in
 
-int main()
-{
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0)
-    {
-        perror("Error creating socket");
-        exit(1);
-    }
+void chat(int sockfd){
+    char buff[MAX];
+    read(sockfd, buff, sizeof(buff));
+    printf("Server time is: %s", buff);
+}
 
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_addr.sin_port = htons(PORT);
+int main(){
+    SAI server;
+    //socket create
+    int sockfd;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    printf("Socket successfully created..\n");
+    //client init
+    bzero(&server, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port = htons(PORT);
+    //connect with server
+    if (connect(sockfd, (SA*)&server, sizeof(server)) == 0) 
+        printf("connected to the server..\n");
 
-    char buffer[BUF_SIZE];
-    while (1)
-    {
-        printf("Enter 'TIME' to get the current system time, or 'QUIT' to exit: ");
-        fgets(buffer, BUF_SIZE, stdin);
-
-        if (strcmp(buffer, "QUIT\n") == 0)
-        {
-            break;
-        }
-
-        int send_len = sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        if (send_len < 0)
-        {
-            perror("Error sending data to server");
-            exit(1);
-        }
-
-        memset(buffer, 0, BUF_SIZE);
-        int recv_len = recvfrom(sockfd, buffer, BUF_SIZE, 0, NULL, NULL);
-        if (recv_len < 0)
-        {
-            perror("Error receiving data from server");
-            exit(1);
-        }
-
-        printf("Server time: %s", buffer);
-    }
-
+    chat(sockfd);
     close(sockfd);
     return 0;
 }
