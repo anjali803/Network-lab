@@ -3,43 +3,44 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#define MAX 80
 #define PORT 8080
-#define MAXLINE 1024
+#define SA struct sockaddr
+#define SAI struct sockaddr_in
 
-int main() {
-    int sockfd;
-    char buffer[MAXLINE];
-    char *hello = "Hello from client";
-    struct sockaddr_in servaddr;
-
-    // Creating socket file descriptor
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("socket creation failed");
-        exit(EXIT_FAILURE);
+void chat(int sockfd,SAI server){
+    printf("\nClient ready....\n");
+    char buff[MAX];
+    int n,len=sizeof(server);
+    while(1)
+    {      
+        bzero(buff, sizeof(buff)); 
+        printf("\nClient:");
+        n = 0;
+        while ((buff[n++] = getchar()) !='\n');
+        sendto(sockfd,buff,sizeof(buff),0,(SA*)&server,len);
+        bzero(buff, sizeof(buff)); 
+        recvfrom(sockfd,buff,sizeof(buff),0,(SA*)&server,(socklen_t*)&len);
+        printf("\nServer:%s",buff);
+        if(strncmp(buff,"exit",4)==0){
+            printf("Client Exit...\n");
+            break;
+        }
     }
 
-    memset(&servaddr, 0, sizeof(servaddr));
-
-    // Filling server information
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(PORT);
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-
-    // Prompt user to enter a message
-    printf("Enter a message to send: ");
-    fgets(buffer, MAXLINE, stdin);
-
-    sendto(sockfd, (const char *)buffer, strlen(buffer), MSG_CONFIRM, (const struct sockaddr *)&servaddr, sizeof(servaddr));
-    printf("Message sent: %s\n", buffer);
-
-    int n, len;
-
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr *)&servaddr, &len);
-    buffer[n] = '\0';
-    printf("Server: %s\n", buffer);
-
-    close(sockfd);
-    return 0;
 }
+int main(){
+    SAI server;
+    int sockfd;
+    sockfd=socket(AF_INET,SOCK_DGRAM,0);
+    server.sin_family=AF_INET;
+    server.sin_addr.s_addr=htonl(INADDR_ANY);
+    server.sin_port=htons(PORT);
+
+    chat(sockfd,server);
+    close(sockfd);
+	return 0;
+}
+
