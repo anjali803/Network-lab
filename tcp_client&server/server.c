@@ -1,69 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 
+
+#define MAX 80
 #define PORT 8080
+#define SA struct sockaddr
+#define SAI struct sockaddr_in
 
-int main(int argc, char const* argv[])
-{
-    int server_fd, new_socket, valread;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[1024] = { 0 };
-
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+void chat(int connfd){
+    char buff[MAX];
+    int n;
+    while(1){
+        bzero(buff, MAX);
+        read(connfd, buff, sizeof(buff));
+        printf("Client: %sServer: ", buff);
+        bzero(buff, MAX);
+        n =0;
+        while ((buff[n++] = getchar()) != '\n');
+        write(connfd, buff, sizeof(buff));
+        if (strncmp("exit", buff, 4) == 0) {
+            printf("Server Exit...\n");
+            break;
+        }
     }
+}
 
-    // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET,
-                   SO_REUSEADDR | SO_REUSEPORT, &opt,
-                   sizeof(opt))) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
+int main(){
+    SAI server,client;
+    // socket create
+    int sockfd, connfd, len;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    printf("Socket successfully created.....\n");
+    // server init
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port = htons(PORT);
+    //binding
+    if ((bind(sockfd, (SA*)&server, sizeof(server))) == 0) 
+        printf("Socket successfully binded..\n");
+    //listening
+    if ((listen(sockfd, 5)) == 0) 
+        printf("Server listening..\n");
+    //accept request
+    len = sizeof(client);
+    connfd = accept(sockfd, (SA*)&client, (socklen_t*)&len);
+    printf("Server accept the client...\n");
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    // Forcefully attaching socket to the port 8080
-    if (bind(server_fd, (struct sockaddr*)&address,
-             sizeof(address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(server_fd, 3) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-
-    if ((new_socket = accept(server_fd, (struct sockaddr*)&address,
-                             (socklen_t*)&addrlen)) < 0) {
-        perror("accept");
-        exit(EXIT_FAILURE);
-    }
-
-    valread = read(new_socket, buffer, 1024);
-    printf("Received message: %s\n", buffer);
-
-    // Prompt user to enter a message
-    printf("Enter a message to send: ");
-    fgets(buffer, 1024, stdin);
-
-    send(new_socket, buffer, strlen(buffer), 0);
-    printf("Message sent: %s\n", buffer);
-
-    // closing the connected socket
-    close(new_socket);
-    // closing the listening socket
-    shutdown(server_fd, SHUT_RDWR);
+    chat(connfd);
+    close(sockfd);
     return 0;
 }
+
+
